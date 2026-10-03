@@ -96,7 +96,7 @@ locals {
     }
   }
 
-  admin_ssh_public_key = file("~/.ssh/id_ed25519.pub")
+  admin_ssh_public_key = file(var.admin_ssh_public_key_path)
 }
 
 resource "tls_private_key" "jumphost_automation" {

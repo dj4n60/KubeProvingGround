@@ -8,6 +8,12 @@ variable "location" {
   description = "Azure location"
 }
 
+variable "admin_ssh_public_key_path" {
+  type        = string
+  description = "Path to the SSH public key installed for the admin user on every VM"
+  default     = "~/.ssh/id_ed25519.pub"
+}
+
 variable "k8s_network" {
   type = object({
     vnet_name_prefix = string
