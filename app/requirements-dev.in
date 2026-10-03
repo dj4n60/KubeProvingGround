@@ -1,0 +1,6 @@
+# Test and lint dependencies, constrained to the runtime lock:
+#   pip-compile --generate-hashes --output-file requirements-dev.txt requirements-dev.in
+-c requirements.txt
+pytest
+httpx2
+ruff

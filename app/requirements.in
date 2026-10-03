@@ -1,0 +1,6 @@
+# Direct runtime dependencies. requirements.txt is the pinned, hashed lock:
+#   pip-compile --generate-hashes --output-file requirements.txt requirements.in
+fastapi
+uvicorn
+pydantic
+numpy

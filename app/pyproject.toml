@@ -1,0 +1,12 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+# E203/E221/E241: aligned columns in the endpoint tables. E501: section rulers.
+ignore = ["E203", "E221", "E241", "E501"]

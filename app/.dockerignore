@@ -1,0 +1,6 @@
+# Only riskcheck/ and requirements.txt belong in the image.
+*
+!riskcheck/
+!requirements.txt
+**/__pycache__/
+**/*.pyc
