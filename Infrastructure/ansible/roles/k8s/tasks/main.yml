@@ -1,7 +1,7 @@
 ---
 - name: Installed Required Packages (1/5)
   ansible.builtin.apt:
-    name: "{{ required_packages }}"
+    name: "{{ k8s_required_packages }}"
     state: present
     update_cache: true
 
@@ -15,7 +15,7 @@
 
 - name: Installed Kubernetes Packages (3/5)
   ansible.builtin.apt:
-    name: "{{ required_k8s_packages }}"
+    name: "{{ k8s_packages }}"
     state: present
     update_cache: true
   notify: Enable kubelet
@@ -24,14 +24,14 @@
   ansible.builtin.dpkg_selections:
     name: "{{ item }}"
     selection: hold
-  loop: "{{ required_k8s_packages }}"
+  loop: "{{ k8s_packages }}"
 
 # Source - https://stackoverflow.com/a/75344866
 # Posted by C-nan, modified by community and me. See post 'Timeline' for change history
 # Retrieved 2026-09-23, License - CC BY-SA 4.0
 - name: Install helm on master if not exists (5/5)
   ansible.builtin.unarchive:
-    src: https://get.helm.sh/helm-v{{helm_version}}-linux-amd64.tar.gz
+    src: https://get.helm.sh/helm-v{{ k8s_helm_version }}-linux-amd64.tar.gz
     dest: /usr/local/bin
     extra_opts: "--strip-components=1"
     owner: root
