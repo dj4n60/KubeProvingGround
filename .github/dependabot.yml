@@ -1,0 +1,28 @@
+---
+version: 2
+updates:
+  # SHA-pinned actions in .github/workflows
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+
+  # Provider and module versions, plus .terraform.lock.hcl
+  - package-ecosystem: terraform
+    directories:
+      - /Infrastructure/terraform/azure
+      - /Infrastructure/terraform/azure/modules/*
+    schedule:
+      interval: weekly
+
+  # The hashed lock files compiled from requirements*.in
+  - package-ecosystem: pip
+    directory: /app
+    schedule:
+      interval: weekly
+
+  # The digest-pinned base image in app/Dockerfile
+  - package-ecosystem: docker
+    directory: /app
+    schedule:
+      interval: weekly
