@@ -1,4 +1,5 @@
 resource "azurerm_network_interface" "node" {
+  # checkov:skip=CKV_AZURE_119: Only the jumphost pool sets assign_public_ip. It is the single SSH entry point; masters and workers stay private.
   for_each            = var.nodes
   name                = "${var.name_prefix}-${each.key}-nic"
   resource_group_name = var.resource_group_name
@@ -44,6 +45,8 @@ resource "azurerm_linux_virtual_machine" "node" {
   priority        = var.priority
   eviction_policy = var.priority == "Spot" ? var.eviction_policy : null
   custom_data     = var.custom_data == null ? null : base64encode(var.custom_data)
+
+  allow_extension_operations = false
 
   # no spot
   admin_ssh_key {

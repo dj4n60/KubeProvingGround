@@ -59,6 +59,7 @@ module "k8s-vnet" {
 # ZONE DISCOVERY
 # =========================================================
 module "regions" {
+  # checkov:skip=CKV_TF_1: Azure Verified Module from the Terraform Registry, pinned to an exact version. Dependabot proposes updates.
   source  = "Azure/avm-utl-regions/azurerm"
   version = "0.12.0"
 }
