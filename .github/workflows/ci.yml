@@ -35,6 +35,12 @@ jobs:
         working-directory: Infrastructure/terraform
         run: terraform fmt -check -recursive -diff
 
+      # The config reads an SSH public key from disk; the runner has none, so make a throwaway one
+      - name: Generate throwaway SSH key
+        run: |
+          ssh-keygen -t ed25519 -N "" -q -f "$RUNNER_TEMP/ci_key"
+          echo "TF_VAR_admin_ssh_public_key_path=$RUNNER_TEMP/ci_key.pub" >> "$GITHUB_ENV"
+
       - name: Init
         run: terraform init -backend=false -input=false
 
@@ -100,14 +106,20 @@ jobs:
       - name: Checkout
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
-      - name: Checkov scan
-        uses: bridgecrewio/checkov-action@99bb2caf247dfd9f03cf984373bc6043d4e32ebf # v12.1347.0
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
-          directory: .
-          framework: terraform,dockerfile,github_actions
-          quiet: true
-          output_format: cli,sarif
-          output_file_path: console,results.sarif
+          python-version: "3.13"
+
+      - name: Install Checkov
+        run: pip install checkov==3.3.22
+
+      # One -o per format: the CLI report goes to the log, the SARIF report to a file
+      - name: Checkov scan
+        run: >-
+          checkov --directory . --quiet
+          --framework terraform,dockerfile,github_actions
+          -o cli -o sarif --output-file-path console,results.sarif
 
       # Runs when the scan fails too, so the findings still reach the Security tab
       - name: Upload SARIF
