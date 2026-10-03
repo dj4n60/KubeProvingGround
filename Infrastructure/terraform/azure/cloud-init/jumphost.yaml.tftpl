@@ -1,0 +1,19 @@
+#cloud-config
+package_update: true
+packages:
+  - ansible
+  - git
+
+write_files:
+  - path: /home/azureadm/.ssh/id_automation
+    owner: azureadm:azureadm
+    permissions: '0600'
+    defer: true
+    content: |
+      ${indent(6, automation_private_key)}
+  - path: /home/azureadm/.ssh/id_automation.pub
+    owner: azureadm:azureadm
+    permissions: '0644'
+    defer: true
+    content: |
+      ${indent(6, automation_public_key)}

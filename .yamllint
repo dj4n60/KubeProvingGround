@@ -1,0 +1,25 @@
+---
+extends: default
+
+ignore: |
+  .terraform/
+  .venv/
+
+rules:
+  # The four below are the values ansible-lint requires of a yamllint config
+  comments:
+    min-spaces-from-content: 1
+  comments-indentation: false
+  braces:
+    max-spaces-inside: 1
+  octal-values:
+    forbid-implicit-octal: true
+    forbid-explicit-octal: true
+  # Long shell and kubectl lines are common in the roles: warn, do not fail
+  line-length:
+    max: 160
+    level: warning
+  # "on:" in GitHub workflows is a key, not a boolean
+  truthy:
+    check-keys: false
+  document-start: disable

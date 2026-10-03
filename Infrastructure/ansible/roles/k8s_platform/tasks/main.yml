@@ -1,0 +1,220 @@
+---
+- name: Pre-checks
+  tags: always
+  block:
+    - name: Install pip (1/4)
+      ansible.builtin.apt:
+        name: python3-pip
+        state: present
+        update_cache: true
+      become: true
+
+    # Ubuntu's python3-kubernetes is older than kubernetes.core needs, so install it for the remote user only
+    - name: Install the kubernetes Python client for the remote user (2/4)
+      ansible.builtin.pip:
+        name: "kubernetes>=24.2.0"
+        extra_args: --user --break-system-packages
+
+    # Helm comes from the k8s role (k8s_install_helm: true in group_vars/k8s-master.yml)
+    - name: Check helm is installed (3/4)
+      ansible.builtin.command: helm version --short
+      changed_when: false
+
+    - name: Wait until every node is Ready (4/4)
+      kubernetes.core.k8s_info:
+        kind: Node
+        wait: true
+        wait_condition:
+          type: Ready
+          status: "True"
+        wait_timeout: 120
+
+- name: Storage - local-path-provisioner as the default StorageClass (1/6)
+  tags: storage
+  block:
+    - name: Download the local-path-provisioner manifest
+      ansible.builtin.uri:
+        url: "https://raw.githubusercontent.com/rancher/local-path-provisioner/{{ k8s_platform_local_path_version }}/deploy/local-path-storage.yaml"
+        return_content: true
+      register: k8s_platform_local_path_manifest
+
+    # No wait here: the module waits per object in order, and the ConfigMap comes after the Deployment
+    - name: Apply local-path-provisioner
+      kubernetes.core.k8s:
+        definition: "{{ k8s_platform_local_path_manifest.content | from_yaml_all | reject('none') | list }}"
+        apply: true
+        server_side_apply:
+          field_manager: "{{ k8s_platform_field_manager }}"
+          force_conflicts: true
+
+    - name: Wait for local-path-provisioner to be Available
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        name: local-path-provisioner
+        namespace: local-path-storage
+        wait: true
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: "{{ k8s_platform_wait_timeout }}"
+
+    - name: Make local-path the default StorageClass
+      kubernetes.core.k8s:
+        state: patched
+        kind: StorageClass
+        name: local-path
+        definition:
+          metadata:
+            annotations:
+              storageclass.kubernetes.io/is-default-class: "true"
+
+- name: Metrics - metrics-server (2/6)
+  tags: metrics
+  block:
+    - name: Download the metrics-server manifest
+      ansible.builtin.uri:
+        url: "https://github.com/kubernetes-sigs/metrics-server/releases/download/{{ k8s_platform_metrics_server_version }}/components.yaml"
+        return_content: true
+      register: k8s_platform_metrics_manifest
+
+    # Lab only: add --kubelet-insecure-tls to the manifest itself, so a re-apply never drops it
+    - name: Add --kubelet-insecure-tls after --cert-dir
+      ansible.builtin.set_fact:
+        k8s_platform_metrics_docs: >-
+          {{ k8s_platform_metrics_manifest.content
+             | regex_replace('(\n\s*)- --cert-dir=/tmp', '\1- --cert-dir=/tmp\1- --kubelet-insecure-tls') }}
+
+    - name: Check the flag made it into the manifest
+      ansible.builtin.assert:
+        that: "'--kubelet-insecure-tls' in k8s_platform_metrics_docs"
+        fail_msg: "--cert-dir=/tmp not found in components.yaml {{ k8s_platform_metrics_server_version }}; update the regex"
+        quiet: true
+
+    # Same apply-then-wait split as local-path, so manifest order never matters
+    - name: Apply metrics-server
+      kubernetes.core.k8s:
+        definition: "{{ k8s_platform_metrics_docs | from_yaml_all | reject('none') | list }}"
+        apply: true
+        server_side_apply:
+          field_manager: "{{ k8s_platform_field_manager }}"
+          force_conflicts: true
+
+    - name: Wait for metrics-server to be Available
+      kubernetes.core.k8s_info:
+        kind: Deployment
+        name: metrics-server
+        namespace: kube-system
+        wait: true
+        wait_condition:
+          type: Available
+          status: "True"
+        wait_timeout: "{{ k8s_platform_wait_timeout }}"
+
+- name: Gateway API - CRDs plus NGINX Gateway Fabric (3/6)
+  tags: gateway
+  block:
+    - name: Download the Gateway API standard CRDs
+      ansible.builtin.uri:
+        url: "https://github.com/kubernetes-sigs/gateway-api/releases/download/{{ k8s_platform_gateway_api_version }}/standard-install.yaml"
+        return_content: true
+      register: k8s_platform_gateway_manifest
+
+    # Server-side apply: the CRDs are too large for the last-applied annotation
+    - name: Apply the Gateway API CRDs
+      kubernetes.core.k8s:
+        definition: "{{ k8s_platform_gateway_manifest.content | from_yaml_all | reject('none') | list }}"
+        apply: true
+        server_side_apply:
+          field_manager: "{{ k8s_platform_field_manager }}"
+          force_conflicts: true
+
+    - name: Install or upgrade NGINX Gateway Fabric
+      kubernetes.core.helm:
+        name: ngf
+        chart_ref: oci://ghcr.io/nginx/charts/nginx-gateway-fabric
+        chart_version: "{{ k8s_platform_ngf_version }}"
+        release_namespace: nginx-gateway
+        create_namespace: true
+        values:
+          nginx:
+            service:
+              type: NodePort
+        wait: true
+        timeout: "{{ k8s_platform_helm_timeout }}"
+
+- name: Install or upgrade NGINX Ingress Controller (4/6)
+  kubernetes.core.helm:
+    name: nic
+    chart_ref: oci://ghcr.io/nginx/charts/nginx-ingress
+    chart_version: "{{ k8s_platform_nic_version }}"
+    release_namespace: nginx-ingress
+    create_namespace: true
+    values:
+      controller:
+        service:
+          type: NodePort
+    wait: true
+    timeout: "{{ k8s_platform_helm_timeout }}"
+  tags: ingress
+
+- name: Install or upgrade cert-manager with its CRDs (5/6)
+  kubernetes.core.helm:
+    name: cert-manager
+    chart_ref: oci://quay.io/jetstack/charts/cert-manager
+    chart_version: "{{ k8s_platform_cert_manager_version }}"
+    release_namespace: cert-manager
+    create_namespace: true
+    values:
+      crds:
+        enabled: true
+    wait: true
+    timeout: "{{ k8s_platform_helm_timeout }}"
+  tags: cert-manager
+
+# Lab only: etcdctl and etcdutl at the version of the running etcd, for the snapshot and restore drills
+- name: etcd client tools - etcdctl and etcdutl (6/6)
+  tags: etcd-tools
+  block:
+    - name: Read the etcd static pod manifest
+      ansible.builtin.slurp:
+        src: /etc/kubernetes/manifests/etcd.yaml
+      register: k8s_platform_etcd_manifest
+      become: true
+
+    # No backslashes in the pattern, so YAML and Jinja escaping cannot change it
+    - name: Take the etcd version from the image tag
+      ansible.builtin.set_fact:
+        k8s_platform_etcd_version: >-
+          {{ k8s_platform_etcd_manifest.content | b64decode
+             | regex_search('etcd:v?[0-9]+[.][0-9]+[.][0-9]+') | default('', true)
+             | regex_replace('^etcd:v?', '') }}
+
+    - name: Check the etcd version was found
+      ansible.builtin.assert:
+        that: k8s_platform_etcd_version | length > 0
+        fail_msg: "No etcd image tag found in /etc/kubernetes/manifests/etcd.yaml; update the regex"
+        quiet: true
+
+    - name: Check the installed etcdctl and etcdutl versions
+      ansible.builtin.shell: etcdctl version && etcdutl version
+      register: k8s_platform_etcd_tools
+      changed_when: false
+      failed_when: false
+
+    # Runs again after an upgrade changes the etcd version, so the tools never fall behind
+    - name: Install etcdctl and etcdutl
+      ansible.builtin.unarchive:
+        src: "https://github.com/etcd-io/etcd/releases/download/v{{ k8s_platform_etcd_version }}/etcd-v{{ k8s_platform_etcd_version }}-linux-amd64.tar.gz"
+        dest: /usr/local/bin
+        include:
+          - "etcd-v{{ k8s_platform_etcd_version }}-linux-amd64/etcdctl"
+          - "etcd-v{{ k8s_platform_etcd_version }}-linux-amd64/etcdutl"
+        extra_opts: "--strip-components=1"
+        owner: root
+        group: root
+        mode: "0755"
+        remote_src: true
+      become: true
+      when: >-
+        k8s_platform_etcd_tools.rc != 0
+        or k8s_platform_etcd_tools.stdout_lines | select('search', k8s_platform_etcd_version) | list | length < 2

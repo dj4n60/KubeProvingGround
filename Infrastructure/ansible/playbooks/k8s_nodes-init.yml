@@ -1,0 +1,7 @@
+---
+- hosts: k8s-master:k8s-worker
+  become: true
+  roles:
+    - common
+    - containerd
+    - k8s

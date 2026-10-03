@@ -1,0 +1,33 @@
+---
+- name: Disable swap (1/4)
+  ansible.builtin.command: swapoff -a
+  changed_when: true
+  when: kubernetes_node
+
+- name: Disable SWAP in fstab (2/4)
+  ansible.builtin.replace:
+    path: /etc/fstab
+    regexp: '^([^#].*\sswap\s.*)$'
+    replace: '# \1'
+  when: kubernetes_node
+
+- name: Load kernel modules and persist across reboots (3/4)
+  community.general.modprobe:
+    name: "{{ item.name }}"
+    state: present
+    persistent: present
+  loop: "{{ required_modules }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: kubernetes_node
+
+- name: Set sysctl params for Kubernetes networking (4/4)
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/k8s.conf
+    reload: true
+  loop: "{{ required_sysctls }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: kubernetes_node

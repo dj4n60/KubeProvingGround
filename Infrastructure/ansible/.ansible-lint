@@ -1,0 +1,3 @@
+---
+# Strictness, lowest to highest: min, basic, moderate, safety, shared, production
+profile: basic

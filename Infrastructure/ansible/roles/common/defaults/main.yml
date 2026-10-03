@@ -1,0 +1,14 @@
+---
+required_modules:
+  - name: br_netfilter
+    comment: "Required for Kubernetes networking"
+  - name: overlay
+    comment: "Required for container storage drivers"
+
+required_sysctls:
+  - name: net.bridge.bridge-nf-call-iptables
+    value: '1'
+  - name: net.bridge.bridge-nf-call-ip6tables
+    value: '1'
+  - name: net.ipv4.ip_forward
+    value: '1'

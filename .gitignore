@@ -1,0 +1,35 @@
+# Environment files
+.env
+.env.*
+*.env
+!example.env
+cluster.json
+
+# Environment directories
+environments/
+.venv/
+env/
+.env/
+
+# Azure credentials
+azure_credentials.json
+azure_profile.json
+*.pem
+*.key
+secrets/
+
+# Terraform state & variables
+terraform.tfstate
+terraform.tfstate.backup
+.terraform/
+.terraform.tfstate.lock.info
+*.tfstate.*
+#You won't need to approve my plan
+*.plan
+
+# Python caches
+__pycache__/
+.pytest_cache/
+.ruff_cache/
+
+.claude/

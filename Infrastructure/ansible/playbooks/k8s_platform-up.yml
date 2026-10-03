@@ -1,0 +1,7 @@
+---
+# Run after kubeadm init and Cilium, when every node is Ready. Safe to run again.
+- hosts: k8s-master[0]
+  become: false
+  gather_facts: false
+  roles:
+    - k8s_platform
