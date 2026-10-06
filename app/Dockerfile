@@ -1,17 +1,22 @@
 # Base image pinned by digest (python:3.14-slim); Dependabot bumps it.
-FROM python:3.14-slim@sha256:0741d101873c12ab927e6f8653feb8862b9bd58771177acb1b885b95141f91b4 AS build
+FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2 AS build
 
-# Install the hashed lock into a venv, so the runtime stage needs no pip cache or build tools
+# Install the hashed lock into a venv, so the runtime stage needs no pip cache or build tools.
+# The venv has no pip of its own: the base image's pip installs into it, so pip and the
+# libraries it bundles (urllib3, msgpack, setuptools) are not copied to the runtime stage.
 COPY requirements.txt .
-RUN python -m venv /opt/venv \
-    && /opt/venv/bin/pip install --no-cache-dir --require-hashes -r requirements.txt
+RUN python -m venv --without-pip /opt/venv \
+    && pip --python /opt/venv/bin/python install --no-cache-dir --require-hashes -r requirements.txt
 
 
-FROM python:3.14-slim@sha256:0741d101873c12ab927e6f8653feb8862b9bd58771177acb1b885b95141f91b4
+FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
+
+# Nothing is installed at runtime, so the base image's pip goes too
+RUN python -m pip uninstall --yes pip
 
 WORKDIR /app
 
