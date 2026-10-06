@@ -153,7 +153,7 @@ KubeProvingGround/
 ### Prerequisites
 
 - Terraform 1.12.2 or newer, `jq`, and the Azure CLI, logged in with `az login`
-- An SSH key at `~/.ssh/id_ed25519.pub`, and `ssh` and `scp` on your `PATH`
+- An SSH key at `~/.ssh/id_ed25519.pub`, and `ssh` and `scp` on your `PATH` OR change the SSH key on your repo :)
 - Your subscription ID in `TF_VAR_subscription_id`
 
 ### 1. Build the infrastructure
@@ -220,8 +220,7 @@ Start with the layer that failed. Each one has a quick check.
 - Playbooks. Both playbooks are safe to run again. Run a single part of the add-ons with its tag.
 - Network. Test outbound access from a node with TCP, such as `curl` or `nc -vz <host> 443`. `ping` to
   the internet does not work on masters and workers.
-- Nodes `NotReady`. Check the kubelet with `journalctl -u kubelet`, and check that a CNI is installed.
-  With no CNI, nodes stay `NotReady` and CoreDNS stays `Pending`.
+
 
 The [installation guide](Documentation/cluster-installation-guide.md) lists what goes wrong at each
 stage.
