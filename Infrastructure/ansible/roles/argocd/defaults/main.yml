@@ -1,0 +1,9 @@
+---
+argocd_chart_version: "10.9.6"
+argocd_namespace: argocd
+argocd_helm_timeout: 5m
+
+# Where the root Application reads from. Override the revision with -e to test a branch
+argocd_repo_url: https://github.com/dj4n60/KubeProvingGround.git
+argocd_target_revision: main
+argocd_path: Cluster/gitops

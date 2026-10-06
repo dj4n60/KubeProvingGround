@@ -1,0 +1,36 @@
+---
+- name: Install or upgrade Argo CD (1/2)
+  kubernetes.core.helm:
+    name: argocd
+    chart_ref: oci://ghcr.io/argoproj/argo-helm/argo-cd
+    chart_version: "{{ argocd_chart_version }}"
+    release_namespace: "{{ argocd_namespace }}"
+    create_namespace: true
+    wait: true
+    timeout: "{{ argocd_helm_timeout }}"
+  tags: argocd
+
+- name: Apply the root Application (2/2)
+  kubernetes.core.k8s:
+    state: present
+    definition:
+      apiVersion: argoproj.io/v1alpha1
+      kind: Application
+      metadata:
+        name: root
+        namespace: "{{ argocd_namespace }}"
+      spec:
+        project: default
+        source:
+          repoURL: "{{ argocd_repo_url }}"
+          targetRevision: "{{ argocd_target_revision }}"
+          path: "{{ argocd_path }}"
+          directory:
+            recurse: true
+        destination:
+          server: https://kubernetes.default.svc
+        syncPolicy:
+          automated:
+            prune: true
+            selfHeal: true
+  tags: argocd
