@@ -121,12 +121,20 @@ jobs:
           --framework terraform,dockerfile,github_actions
           -o cli -o sarif --output-file-path console,results.sarif
 
+      # Checkov writes checks skipped with a checkov:skip comment into the SARIF as suppressed
+      # results, and GitHub opens an alert for them anyway. Drop them before the upload.
+      - name: Remove skipped checks from SARIF
+        if: success() || failure()
+        run: >-
+          jq '.runs[].results |= map(select((.suppressions // []) | length == 0))'
+          results.sarif > results.filtered.sarif
+
       # Runs when the scan fails too, so the findings still reach the Security tab
       - name: Upload SARIF
         if: success() || failure()
         uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
         with:
-          sarif_file: results.sarif
+          sarif_file: results.filtered.sarif
           category: checkov
 
   semgrep:
@@ -181,6 +189,32 @@ jobs:
           GITLEAKS_ENABLE_COMMENTS: false
           GITLEAKS_ENABLE_UPLOAD_ARTIFACT: false
 
-  # TODO(trivy): vulnerability scanning, not added yet.
-  #   - here: a "trivy fs" scan of app/ for known CVEs in the pinned Python dependencies
-  #   - in image.yml: a "trivy image" scan of the built image, failing on fixable HIGH and CRITICAL
+  # Known CVEs in the pinned Python dependencies; the built image is scanned in image.yml
+  trivy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # In SARIF mode the action reports every severity unless limit-severities-for-sarif is set
+      - name: Trivy filesystem scan
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          scan-type: fs
+          scan-ref: app
+          severity: MEDIUM,HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+          format: sarif
+          output: trivy-fs.sarif
+          limit-severities-for-sarif: true
+
+      - name: Upload SARIF
+        if: success() || failure()
+        uses: github/codeql-action/upload-sarif@2892aa5e19bbd11bc0cff5427e3b750a04d9e3c2 # v4.38.2
+        with:
+          sarif_file: trivy-fs.sarif
+          category: trivy-fs

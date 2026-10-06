@@ -1,5 +1,5 @@
 ---
-#Run pip install pre-commit && pre-commit install
+#Run $ pip install pre-commit && pre-commit install
 repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
