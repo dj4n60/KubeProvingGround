@@ -1,5 +1,5 @@
 # Base image pinned by digest (python:3.14-slim); Dependabot bumps it.
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2 AS build
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170 AS build
 
 # Install the hashed lock into a venv, so the runtime stage needs no pip cache or build tools.
 # The venv has no pip of its own: the base image's pip installs into it, so pip and the
@@ -9,7 +9,7 @@ RUN python -m venv --without-pip /opt/venv \
     && pip --python /opt/venv/bin/python install --no-cache-dir --require-hashes -r requirements.txt
 
 
-FROM python:3.14-slim@sha256:f85c5697265c178cc6887276c55fe16cf3d14ca35c3df6a5eab3b360534a55d2
+FROM python:3.14-slim@sha256:a2b82f3c48559aa0a8446d9af49826b6e2b2016f4cd2afabfe6013ec53729170
 
 ENV PATH="/opt/venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
